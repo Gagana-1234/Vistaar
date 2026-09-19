@@ -1,0 +1,98 @@
+[
+  {
+    "product": "Sunflower Oil 1L",
+    "category": "cooking_oil",
+    "current_stock": 117,
+    "reorder_level": 30,
+    "unit_price": 120,
+    "unit": "units"
+  },
+  {
+    "product": "Mustard Oil 500ml",
+    "category": "cooking_oil",
+    "current_stock": 136,
+    "reorder_level": 25,
+    "unit_price": 110,
+    "unit": "units"
+  },
+  {
+    "product": "Basmati Rice 5kg",
+    "category": "rice",
+    "current_stock": 793,
+    "reorder_level": 40,
+    "unit_price": 90,
+    "unit": "units"
+  },
+  {
+    "product": "Sona Masoori 5kg",
+    "category": "rice",
+    "current_stock": 797,
+    "reorder_level": 50,
+    "unit_price": 75,
+    "unit": "units"
+  },
+  {
+    "product": "Lay's Chips",
+    "category": "snacks",
+    "current_stock": 788,
+    "reorder_level": 60,
+    "unit_price": 20,
+    "unit": "units"
+  },
+  {
+    "product": "Kurkure 90g",
+    "category": "snacks",
+    "current_stock": 827,
+    "reorder_level": 50,
+    "unit_price": 15,
+    "unit": "units"
+  },
+  {
+    "product": "Amul Milk 500ml",
+    "category": "dairy",
+    "current_stock": 1558,
+    "reorder_level": 80,
+    "unit_price": 30,
+    "unit": "units"
+  },
+  {
+    "product": "Curd 200g",
+    "category": "dairy",
+    "current_stock": 1000,
+    "reorder_level": 40,
+    "unit_price": 25,
+    "unit": "units"
+  },
+  {
+    "product": "Surf Excel 1kg",
+    "category": "household",
+    "current_stock": 478,
+    "reorder_level": 20,
+    "unit_price": 80,
+    "unit": "units"
+  },
+  {
+    "product": "Vim Bar",
+    "category": "household",
+    "current_stock": 523,
+    "reorder_level": 20,
+    "unit_price": 25,
+    "unit": "units"
+  },
+  {
+    "product": "Frooti 200ml",
+    "category": "beverages",
+    "current_stock": 329,
+    "reorder_level": 30,
+    "unit_price": 20,
+    "unit": "units"
+  },
+  {
+    "product": "Sprite 750ml",
+    "category": "beverages",
+    "current_stock": 354,
+    "reorder_level": 35,
+    "unit_price": 45,
+    "unit": "units"
+  }
+]

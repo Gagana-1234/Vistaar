@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 venv/
 __pycache__/
 *.pyc
@@ -9,9 +9,22 @@ __pycache__/
 backend/data/transactions.csv
 backend/data/notifications.json
 
+# Cognee local vector database (auto-created, not for source control)
+backend/data/cognee_db/
+
+# Test / debug scripts
+backend/verify.py
+backend/test_memory_speed.py
+
+# Backup zips
+*.zip
+
 # Node
 frontend/node_modules/
 frontend/dist/
+
+# VS Code
+.vscode/
 
 # OS
 .DS_Store

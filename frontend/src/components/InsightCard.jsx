@@ -1,7 +1,37 @@
 import React, { useState } from 'react';
+import { runDailyCheck } from '../api';
+
+/**
+ * InsightCard — Enhanced with full explainability fields.
+ *
+ * Shows the complete Vistaar alert breakdown:
+ *   What happened | Why it matters | Evidence | What next | Historical context
+ * Priority badge: NO_ACTION / LOW / MEDIUM / HIGH
+ */
+
+const PRIORITY_CONFIG = {
+  HIGH:      { bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700 border-red-200',    emoji: '⚠️',  label: 'High Priority' },
+  MEDIUM:    { bg: 'bg-amber-50',  border: 'border-amber-200',  badge: 'bg-amber-100 text-amber-700 border-amber-200', emoji: '🔔', label: 'Medium Priority' },
+  LOW:       { bg: 'bg-sky-50',    border: 'border-sky-200',    badge: 'bg-sky-100 text-sky-700 border-sky-200',      emoji: 'ℹ️', label: 'Low Priority' },
+  NO_ACTION: { bg: 'bg-emerald-50',border: 'border-emerald-200',badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', emoji: '✅', label: 'All Clear' },
+};
+
+function ExplainRow({ label, value, icon }) {
+  if (!value) return null;
+  return (
+    <div className="flex gap-3 py-2 border-b border-slate-100 last:border-0">
+      <span className="text-base">{icon}</span>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">{label}</p>
+        <p className="text-sm text-slate-700 leading-relaxed">{value}</p>
+      </div>
+    </div>
+  );
+}
 
 function InsightCard({ latestCheck, onRefresh }) {
   const [loading, setLoading] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const handleRefresh = async () => {
     setLoading(true);
@@ -9,56 +39,115 @@ function InsightCard({ latestCheck, onRefresh }) {
     setLoading(false);
   };
 
-  const getPriorityColors = (priority) => {
-    switch (priority) {
-      case 'HIGH': return 'bg-red-100 text-red-700 border-red-200';
-      case 'MEDIUM': return 'bg-amber-100 text-amber-700 border-amber-200';
-      default: return 'bg-sky-100 text-sky-700 border-sky-200';
-    }
-  };
+  const priority = latestCheck?.priority || 'NO_ACTION';
+  const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.NO_ACTION;
+  const hasAlert = latestCheck?.has_alert;
 
   return (
     <div className="space-y-4">
-      {latestCheck && latestCheck.has_alert ? (
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getPriorityColors(latestCheck.priority)}`}>
-              {latestCheck.priority} PRIORITY
-            </span>
-            <span className="text-xs text-slate-400">
-              {new Date(latestCheck.timestamp || Date.now()).toLocaleString()}
-            </span>
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-2">
-            {latestCheck.priority === 'HIGH' ? '⚠️' : '🔔'} {latestCheck.recommendation}
-          </h3>
-          <p className="text-slate-600 text-sm leading-relaxed">
+      {/* ── Main alert card */}
+      <div className={`bg-white p-5 rounded-2xl shadow-sm border ${cfg.border}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${cfg.badge}`}>
+            {cfg.emoji} {cfg.label}
+          </span>
+          <span className="text-xs text-slate-400">
+            {latestCheck?.timestamp
+              ? new Date(latestCheck.timestamp).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+              : 'Just now'}
+          </span>
+        </div>
+
+        {/* Recommendation headline */}
+        <h3 className="text-base font-bold text-slate-800 mb-2 leading-snug">
+          {hasAlert
+            ? latestCheck.recommendation
+            : 'No action needed at this time.'}
+        </h3>
+
+        {/* Explanation summary */}
+        {latestCheck?.explanation && (
+          <p className="text-sm text-slate-600 leading-relaxed mb-3">
             {latestCheck.explanation}
           </p>
-        </div>
-      ) : (
-        <div className="bg-emerald-50 p-5 rounded-2xl shadow-sm border border-emerald-100 flex items-start gap-4">
-          <div className="text-2xl mt-1">✅</div>
-          <div>
-            <h3 className="text-lg font-bold text-emerald-800">All Clear</h3>
-            <p className="text-emerald-600 text-sm">No action needed at this time.</p>
-            <p className="text-xs text-emerald-500 mt-2">
-              Last checked: {new Date(latestCheck?.timestamp || Date.now()).toLocaleString()}
-            </p>
+        )}
+
+        {/* n8n source badge */}
+        {latestCheck?.n8n_triggered && (
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-violet-50 border border-violet-200 rounded-full mb-3">
+            <span className="text-xs">⚡</span>
+            <span className="text-[10px] font-semibold text-violet-700">Generated by n8n workflow</span>
+          </div>
+        )}
+
+        {/* Cognee badge */}
+        {latestCheck?.cognee_context_used && (
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-teal-50 border border-teal-200 rounded-full mb-3 ml-2">
+            <span className="text-xs">🧠</span>
+            <span className="text-[10px] font-semibold text-teal-700">Cognee memory used</span>
+          </div>
+        )}
+
+        {/* Toggle explainability details */}
+        {hasAlert && (
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="text-xs text-sky-600 font-medium hover:text-sky-700 flex items-center gap-1 mt-1"
+          >
+            {showDetails ? '▲ Hide details' : '▼ Show full explanation'}
+          </button>
+        )}
+
+        {/* Full explainability breakdown */}
+        {showDetails && hasAlert && (
+          <div className="mt-4 space-y-0 border-t border-slate-100 pt-3">
+            <ExplainRow icon="📊" label="What happened"       value={latestCheck.what_happened} />
+            <ExplainRow icon="❗" label="Why it matters"       value={latestCheck.why_it_matters} />
+            <ExplainRow icon="🔢" label="Evidence"             value={latestCheck.evidence} />
+            <ExplainRow icon="➡️" label="Recommended action"   value={latestCheck.what_next} />
+            <ExplainRow icon="🧠" label="Historical context"   value={latestCheck.historical_context || latestCheck.historical_context_used} />
+          </div>
+        )}
+
+        {/* LLM unavailable banner */}
+        {latestCheck?.llm_unavailable && (
+          <div className="mt-3 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-500 flex items-center gap-2">
+            <span>⚠️</span>
+            <span>AI reasoning unavailable — showing analytics result only. Set GEMINI_API_KEY to enable.</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Signals list */}
+      {hasAlert && latestCheck?.signals?.length > 0 && (
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+            Signals Detected ({latestCheck.signals.length})
+          </h4>
+          <div className="space-y-2">
+            {latestCheck.signals.slice(0, 4).map((sig, i) => {
+              const isSevere = sig.signal_type === 'LOW_STOCK' || Math.abs(sig.deviation_pct) >= 30;
+              return (
+                <div key={i} className={`px-3 py-2 rounded-lg text-xs ${isSevere ? 'bg-red-50 text-red-700' : 'bg-slate-50 text-slate-600'}`}>
+                  <span className="font-semibold capitalize">{sig.category.replace(/_/g, ' ')}</span>
+                  {' — '}{sig.description}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      <button 
+      {/* ── Refresh button */}
+      <button
         onClick={handleRefresh}
         disabled={loading}
-        className="w-full py-3 px-4 bg-white border border-slate-200 text-sky-600 font-semibold rounded-xl shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+        className="w-full py-3 px-4 bg-white border border-slate-200 text-sky-600 font-semibold rounded-xl shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-50 flex justify-center items-center gap-2 text-sm"
       >
-        {loading ? (
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-sky-600"></div>
-        ) : (
-          <>Run New Check <span>🔄</span></>
-        )}
+        {loading
+          ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-sky-600" />
+          : <><span>🔄</span> Run New Check</>}
       </button>
     </div>
   );

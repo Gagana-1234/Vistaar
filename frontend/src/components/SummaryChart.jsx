@@ -1,6 +1,11 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+/**
+ * SummaryChart — Dashboard overview component.
+ * Shows 30-day revenue chart, KPI cards, category snapshot, and inventory coverage bars.
+ */
+
 function SummaryChart({ chartData, summary }) {
   if (!chartData || chartData.length === 0) {
     return (
@@ -12,16 +17,15 @@ function SummaryChart({ chartData, summary }) {
 
   const formatINR = (value) => {
     if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
-    if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
+    if (value >= 1000)   return `₹${(value / 1000).toFixed(1)}K`;
     return `₹${Math.round(value)}`;
   };
 
-  const categories = summary?.categories || {};
+  const categories        = summary?.categories || {};
   const overall30dRevenue = summary?.overall?.total_revenue_30d || 0;
-  const total7dUnits = Object.values(categories).reduce((acc, c) => acc + (c.units_sold_7d || 0), 0);
+  const total7dUnits      = Object.values(categories).reduce((acc, c) => acc + (c.units_sold_7d || 0), 0);
 
-  let topCat = '-';
-  let maxRev = 0;
+  let topCat = '-', maxRev = 0;
   Object.entries(categories).forEach(([cat, stats]) => {
     if (stats.total_revenue_30d > maxRev) {
       maxRev = stats.total_revenue_30d;
@@ -29,11 +33,31 @@ function SummaryChart({ chartData, summary }) {
     }
   });
 
-  const last7 = chartData.slice(-7);
-  const rev7d = last7.reduce((acc, d) => acc + (d.revenue || 0), 0);
+  const last7  = chartData.slice(-7);
+  const rev7d  = last7.reduce((acc, d) => acc + (d.revenue || 0), 0);
+
+  // Count low-stock categories
+  const lowStockCats = Object.entries(categories).filter(
+    ([, s]) => (s.stock_coverage_days || 9999) < 7
+  );
 
   return (
     <div className="space-y-4">
+      {/* ── Low-stock banner */}
+      {lowStockCats.length > 0 && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl">
+          <span className="text-xl">⚠️</span>
+          <div>
+            <p className="text-sm font-bold text-red-700">Low Stock Alert</p>
+            <p className="text-xs text-red-600">
+              {lowStockCats.map(([c]) => c.replace(/_/g, ' ')).join(', ')} — less than 7 days of stock remaining.
+              Check the Alerts tab for details.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── KPI cards */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
           <p className="text-xs text-slate-500 mb-1">Revenue (7d)</p>
@@ -56,13 +80,14 @@ function SummaryChart({ chartData, summary }) {
         </div>
       </div>
 
+      {/* ── Revenue chart */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="text-sm font-semibold text-slate-700 mb-4">Daily Revenue — Last 30 Days</h3>
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(val) => val.slice(5)} interval={4} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => v.slice(5)} interval={4} />
               <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={formatINR} width={52} />
               <Tooltip
                 formatter={(value) => [formatINR(value), 'Revenue']}
@@ -75,34 +100,48 @@ function SummaryChart({ chartData, summary }) {
         </div>
       </div>
 
+      {/* ── Category snapshot with inventory coverage */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="text-sm font-semibold text-slate-700 mb-3">Category Snapshot</h3>
-        <div className="space-y-1">
+        <div className="space-y-2">
           {Object.entries(categories).map(([cat, stats]) => {
-            const pct = stats.growth_pct || 0;
-            const isPositive = pct >= 0;
-            const coverageDays = stats.stock_coverage_days === Infinity ? 999 : (stats.stock_coverage_days || 0);
-            const lowStock = coverageDays < 7;
+            const pct         = stats.growth_pct || 0;
+            const isPositive  = pct >= 0;
+            const coverage    = stats.stock_coverage_days === 9999 ? Infinity : (stats.stock_coverage_days || 0);
+            const lowStock    = coverage < 7;
+            const critStock   = coverage < 3;
+            const coverageStr = coverage === Infinity ? '90+' : (coverage > 90 ? '90+' : Math.round(coverage).toString());
+
             return (
-              <div key={cat} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-700 capitalize">{cat.replace(/_/g, ' ')}</span>
-                  {lowStock && <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">Low stock</span>}
+              <div key={cat}>
+                <div className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-700 capitalize">{cat.replace(/_/g, ' ')}</span>
+                    {critStock && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold">Critical</span>}
+                    {lowStock && !critStock && <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-medium">Low stock</span>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-400">{coverageStr}d stock</span>
+                    <span className={`text-xs font-semibold ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {isPositive ? '+' : ''}{pct.toFixed(1)}%
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-400">{coverageDays > 90 ? '90+' : Math.round(coverageDays)}d stock</span>
-                  <span className={`text-xs font-semibold ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {isPositive ? '+' : ''}{pct.toFixed(1)}%
-                  </span>
+                {/* Stock coverage mini-bar */}
+                <div className="w-full bg-slate-100 rounded-full h-1 mb-1">
+                  <div
+                    className={`h-1 rounded-full ${critStock ? 'bg-red-400' : lowStock ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                    style={{ width: `${Math.min(100, (coverage / 30) * 100)}%` }}
+                  />
                 </div>
               </div>
             );
           })}
         </div>
+        <p className="text-[10px] text-slate-400 mt-2">Bar = stock coverage (30 days = full). Red &lt;3d, Amber &lt;7d, Green ≥7d.</p>
       </div>
     </div>
   );
 }
 
 export default SummaryChart;
-

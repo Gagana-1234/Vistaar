@@ -4,11 +4,26 @@ const api = axios.create({
   baseURL: 'http://localhost:8000',
 });
 
-export const getSummary = () => api.get('/analytics/summary').then(res => res.data);
-export const getSignals = () => api.get('/analytics/signals').then(res => res.data);
-export const getChartData = () => api.get('/analytics/chart').then(res => res.data);
-export const runDailyCheck = () => api.post('/scheduler/run').then(res => res.data);
-export const getHistory = () => api.get('/scheduler/history').then(res => res.data);
-export const sendChat = (message) => api.post('/chat', { message }).then(res => res.data);
+// ── Existing endpoints (preserved)
+export const getSummary     = () => api.get('/analytics/summary').then(r => r.data);
+export const getSignals     = () => api.get('/analytics/signals').then(r => r.data);
+export const getChartData   = () => api.get('/analytics/chart').then(r => r.data);
+export const runDailyCheck  = () => api.post('/scheduler/run').then(r => r.data);
+export const getHistory     = () => api.get('/scheduler/history').then(r => r.data);
+export const sendChat       = (message) => api.post('/chat', { message }).then(r => r.data);
+
+// ── New endpoints (n8n + Cognee integration)
+export const getInventory       = () => api.get('/analytics/inventory').then(r => r.data);
+export const getMerchantProfile = () => api.get('/analytics/merchant-profile').then(r => r.data);
+export const getAlertsData      = () => api.get('/analytics/alerts').then(r => r.data);
+
+export const addMemory = (text, memory_type = 'MERCHANT_CONTEXT') =>
+  api.post('/cognee/add-memory', { text, memory_type }).then(r => r.data);
+
+export const searchMemory = (q) =>
+  api.get('/cognee/search', { params: { q } }).then(r => r.data);
+
+export const seedMemories = () => api.post('/cognee/seed').then(r => r.data);
+export const getCogneeStatus = () => api.get('/cognee/status').then(r => r.data);
 
 export default api;

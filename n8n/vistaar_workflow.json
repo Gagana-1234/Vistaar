@@ -1,0 +1,272 @@
+{
+  "name": "Vistaar — Proactive Merchant Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger (9 AM Daily)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "notes": "Triggers the full Vistaar analysis pipeline every morning at 9:00 AM automatically. To test manually, click 'Test Workflow' in n8n."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8000/analytics/alerts",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "get-alerts-data",
+      "name": "Get Merchant Alerts Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "notes": "Fetches signals, summary, merchant profile and inventory from Vistaar backend. This is the single source of truth for the workflow."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://localhost:8000/cognee/search?q={{ encodeURIComponent($json.signals && $json.signals[0] ? $json.signals[0].category + ' demand pattern history' : 'merchant normal sales pattern') }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "get-cognee-context",
+      "name": "Retrieve Cognee Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "notes": "Searches Cognee for merchant memories relevant to the top signal. Returns historical context that enriches AI reasoning. Empty results are safe — system continues without Cognee."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/scheduler/run",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "run-ai-analysis",
+      "name": "Run AI Reasoning Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "notes": "Triggers the full pipeline: decision engine + Cognee context + Gemini AI reasoning. Returns a complete notification with priority, recommendation, and full explainability."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "alert-check",
+              "leftValue": "={{ $json.has_alert }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-alert-required",
+      "name": "Alert Required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "notes": "Checks if the AI + decision engine determined an alert is needed. YES branch → post alert + notify. NO branch → stop (no action needed)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/alerts/receive",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": \"n8n\",\n  \"workflow_id\": \"vistaar-daily-check\",\n  \"priority\": \"{{ $('Run AI Reasoning Pipeline').item.json.priority }}\",\n  \"has_alert\": {{ $('Run AI Reasoning Pipeline').item.json.has_alert }},\n  \"recommendation\": \"{{ $('Run AI Reasoning Pipeline').item.json.recommendation }}\",\n  \"explanation\": \"{{ $('Run AI Reasoning Pipeline').item.json.explanation }}\",\n  \"what_happened\": \"{{ $('Run AI Reasoning Pipeline').item.json.what_happened }}\",\n  \"why_it_matters\": \"{{ $('Run AI Reasoning Pipeline').item.json.why_it_matters }}\",\n  \"evidence\": \"{{ $('Run AI Reasoning Pipeline').item.json.evidence }}\",\n  \"what_next\": \"{{ $('Run AI Reasoning Pipeline').item.json.what_next }}\",\n  \"historical_context\": \"{{ $('Run AI Reasoning Pipeline').item.json.historical_context }}\",\n  \"signals\": {{ JSON.stringify($('Run AI Reasoning Pipeline').item.json.signals || []) }}\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "post-alert",
+      "name": "Post Alert to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 200],
+      "notes": "Posts the completed alert to the Vistaar backend. This saves it to notifications.json and makes it appear in the History tab instantly."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL || 'https://webhook.site/your-webhook-id-here' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": \"Vistaar n8n Workflow\",\n  \"priority\": \"{{ $('Run AI Reasoning Pipeline').item.json.priority }}\",\n  \"recommendation\": \"{{ $('Run AI Reasoning Pipeline').item.json.recommendation }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000,
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          }
+        },
+        "continueOnFail": true
+      },
+      "id": "send-webhook-notification",
+      "name": "Send Webhook Notification (Demo)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 200],
+      "notes": "Sends a demo notification to a webhook URL. For the demo: set N8N_WEBHOOK_URL env var in n8n to a webhook.site URL. This step is optional — continueOnFail=true means the workflow won't break if this fails."
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "No action needed — all metrics within normal range."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "no-action-stop",
+      "name": "No Action Needed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 400],
+      "notes": "NO branch: All metrics are within the merchant's normal range. Workflow stops here — no alert generated."
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (9 AM Daily)": {
+      "main": [
+        [
+          {
+            "node": "Get Merchant Alerts Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Merchant Alerts Data": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Cognee Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Cognee Memory": {
+      "main": [
+        [
+          {
+            "node": "Run AI Reasoning Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run AI Reasoning Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Alert Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Required?": {
+      "main": [
+        [
+          {
+            "node": "Post Alert to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Action Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Alert to Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Send Webhook Notification (Demo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "vistaar-v2",
+  "meta": {
+    "instanceId": "vistaar-hackathon"
+  },
+  "id": "vistaar-daily-check",
+  "tags": ["vistaar", "hackathon", "merchant-analytics"]
+}
