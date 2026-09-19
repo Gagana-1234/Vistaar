@@ -41,15 +41,11 @@ logger = logging.getLogger(__name__)
 # provider environment before loading the SDK.
 _llm_api_key = os.getenv("COGNEE_LLM_API_KEY", "")
 if _llm_api_key:
-    _llm_provider = os.getenv("COGNEE_LLM_PROVIDER", "google")
-    _llm_model = os.getenv("COGNEE_LLM_MODEL", "gemini-3.6-flash")
-    if _llm_provider in ("google", "gemini") and not _llm_model.startswith("gemini/"):
-        _llm_model = f"gemini/{_llm_model}"
-    os.environ["LLM_PROVIDER"] = _llm_provider
-    os.environ["LLM_API_KEY"] = _llm_api_key
-    os.environ["LLM_MODEL"] = _llm_model
-    os.environ["EMBEDDING_PROVIDER"] = os.getenv("COGNEE_EMBEDDING_PROVIDER", "google")
-    os.environ["EMBEDDING_API_KEY"] = os.getenv("COGNEE_EMBEDDING_API_KEY", _llm_api_key)
+    os.environ["LLM_PROVIDER"] = os.getenv("COGNEE_LLM_PROVIDER", "groq")
+    os.environ["LLM_API_KEY"]  = _llm_api_key
+    os.environ["LLM_MODEL"]    = os.getenv("COGNEE_LLM_MODEL", "groq/llama-3.3-70b-versatile")
+    os.environ["EMBEDDING_PROVIDER"] = os.getenv("COGNEE_EMBEDDING_PROVIDER", "groq")
+    os.environ["EMBEDDING_API_KEY"]  = os.getenv("COGNEE_EMBEDDING_API_KEY", _llm_api_key)
 
 # ── Set Cognee DB path to project data dir BEFORE importing the SDK.
 # This avoids the LanceDB file-lock error that occurs when:

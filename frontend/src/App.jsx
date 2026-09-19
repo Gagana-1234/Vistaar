@@ -74,7 +74,7 @@ function App() {
         <div className="flex items-center gap-3 mt-3">
           <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">n8n Powered</span>
           <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">Cognee Memory</span>
-          <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">Gemini AI</span>
+          <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">Groq AI</span>
         </div>
       </header>
 

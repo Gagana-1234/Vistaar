@@ -69,7 +69,7 @@ app = FastAPI(title="Vistaar API — AI Business Advisor", version="2.0.0", life
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5678"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

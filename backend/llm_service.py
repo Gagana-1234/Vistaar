@@ -1,31 +1,13 @@
-"""
-llm_service.py — Vistaar AI reasoning layer.
-
-The LLM receives:
-  A) Pre-calculated analytics metrics (from analytics.py — the LLM never invents numbers)
-  B) Decision engine output (priority + reasons from decision_engine.py)
-  C) Merchant-specific normal ranges (DOW baselines from merchant profile)
-  D) Relevant Cognee memory context (optional — empty string if unavailable)
-
-The LLM answers:
-  1. Is this unusual?
-  2. Is it meaningful given historical context?
-  3. Is action required?
-  4. What should the merchant do?
-  5. Why?
-
-IMPORTANT: If the LLM API fails, the system falls back to the deterministic
-decision engine result rather than crashing or fabricating a response.
-"""
-
 import os
 import json
 import logging
-import google.generativeai as genai
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 logger = logging.getLogger(__name__)
+
+GROQ_MODEL = "groq/compound"
 
 
 def get_llm_analysis(
@@ -35,7 +17,7 @@ def get_llm_analysis(
     decision: dict | None = None,
 ) -> dict:
     """
-    Call Gemini to reason about the current business situation.
+    Call Groq (llama-3.3-70b-versatile) to reason about the current business situation.
 
     Args:
         signals:        List of signal dicts from analytics.detect_signals()
@@ -48,12 +30,13 @@ def get_llm_analysis(
         what_happened, why_it_matters, evidence, what_next,
         historical_context_used, signals_used
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        logger.warning("GEMINI_API_KEY not set — LLM analysis skipped.")
+        logger.warning("GROQ_API_KEY not set — LLM analysis skipped.")
         return _fallback_result(
-            decision, "LLM unavailable (GEMINI_API_KEY not set). Showing analytics result."
+            decision, "LLM unavailable (GROQ_API_KEY not set). Showing analytics result."
         )
+
 
     # ── Build cognee context block for prompt
     cognee_block = ""
@@ -116,10 +99,14 @@ Do not add any text before or after the JSON block.
 """
 
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-3.6-flash")
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        client = Groq(api_key=api_key)
+        completion = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=1024,
+        )
+        text = completion.choices[0].message.content.strip()
 
         # Strip markdown code fences if present
         for fence in ("```json", "```"):
